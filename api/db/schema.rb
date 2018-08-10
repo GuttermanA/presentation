@@ -17,7 +17,7 @@ ActiveRecord::Schema.define(version: 20180809185806) do
     t.string "component_type"
     t.string "location"
     t.string "status"
-    t.bigint "change_ts"
+    t.datetime "change_ts"
   end
 
 end

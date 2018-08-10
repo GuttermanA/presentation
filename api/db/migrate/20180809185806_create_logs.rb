@@ -5,7 +5,7 @@ class CreateLogs < ActiveRecord::Migration[5.1]
       t.string :component_type
       t.string :location
       t.string :status
-      t.bigint :change_ts
+      t.datetime :change_ts
     end
   end
 end
