@@ -6,7 +6,7 @@ log.each do |row|
     component_type: row["component_type"],
     location: row["location"],
     status: row["status"],
-    change_ts: Log.convert_ms_to_datetime(row["change_ts"])
+    change_ts: Helper.convert_ms_to_datetime(row["change_ts"])
   )
 
   if @new_entry.save

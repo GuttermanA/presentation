@@ -1,5 +1,5 @@
 class Log < ApplicationRecord
-
+  include Helper
   before_create :unique_log_entry
 
   def unique_log_entry
@@ -138,16 +138,11 @@ class Log < ApplicationRecord
     results.map(&:attributes)
   end
 
+  # BY COMPONENT TYPE
+
   def self.mean_completion_time_by_component_type(format = "day")
 
-    multiplier = 1
-    if format == "sec"
-      multiplier = 86400
-    elsif format == "min"
-      multiplier = 1440
-    elsif format == "hour"
-      multiplier = 24
-    end
+    multiplier = Helper.time_multiplier(format)
 
     connection = ActiveRecord::Base.connection
 
@@ -178,10 +173,10 @@ class Log < ApplicationRecord
     results.map(&:attributes)
   end
 
-  def self.temp_component_steps
-    connection = ActiveRecord::Base.connection
-
-    connection.execute("DROP TABLE IF EXISTS temp")
+  def self.component_steps(component_type = nil)
+    # connection = ActiveRecord::Base.connection
+    #
+    # connection.execute("DROP TABLE IF EXISTS temp")
 
     # temp_sql = <<-SQL
     # CREATE TEMPORARY TABLE temp (
@@ -207,45 +202,92 @@ class Log < ApplicationRecord
     # SQL
 
 
-    temp_sql = <<-SQL
-      SELECT DISTINCT
-        component_name,
-        component_type,
-        location,
-        status,
-        change_ts
-      FROM logs
-      WHERE status IN ("in progress", "complete")
-      ORDER BY logs.component_name, logs.change_ts;
-    SQL
+    # temp_sql = <<-SQL
+    #   SELECT DISTINCT
+    #     component_name,
+    #     component_type,
+    #     location,
+    #     status,
+    #     change_ts
+    #   FROM logs
+    #   WHERE status IN ("in progress", "complete")
+    #   ORDER BY logs.component_name, logs.change_ts;
+    # SQL
+    #
+    # connection.create_table(:temp, temporary: true, as: temp_sql)
 
-    connection.create_table(:temp, temporary: true, as: temp_sql)
-
-    sql = <<-SQL
-      SELECT DISTINCT
+    if component_type
+      sql = <<-SQL
+        SELECT DISTINCT
         *
-      FROM temp
-    SQL
+        FROM logs
+        INNER JOIN (
+          SELECT DISTINCT
+            component_name
+          FROM logs
+          WHERE component_type = ?
+          AND status IN ("in progress", "complete")
+          ORDER BY component_name, change_ts;
+          LIMIT 1
+        ) first
+        ON logs.component_name = first.component_name
+      SQL
 
-    Log.find_by_sql [sql]
+      Log.find_by_sql [sql, component_type]
+    else
+      sql = <<-SQL
+        SELECT DISTINCT
+          *
+        FROM logs
+        WHERE status IN ("in progress", "complete")
+        ORDER BY component_name, change_ts;
+      SQL
+
+      Log.find_by_sql [sql]
+    end
   end
 
-  def self.mean_component_completion_time_by_location
-  end
-
-  def self.mean_component_completion_time_by_location(format = "day")
-    multiplier = 1
-    if format == "sec"
-      multiplier = 86400
-    elsif format == "min"
-      multiplier = 1440
-    elsif format == "hour"
-      multiplier = 24
+  def self.manufacturing_process_by_component_type
+    unique_component_types = Log.unique_component_types
+    result = unique_component_types.inject({}) do |obj, component_type|
+      obj[component_type] = []
+      obj
     end
 
-    query_results = Log.temp_component_steps
+    unique_component_types.each do |component_type|
+      Log.component_steps(component_type).each do |step|
+        result[component_type] << step.location
+      end
+    end
+    result
+  end
 
-    unique_component_types =
+
+
+  def self.rate_of_output_per_component_type(format = "day")
+    multiplier = Helper.time_multiplier(format)
+    dates = Log.min_and_max_dates
+    date_diff = (Date.parse(dates[1]) - Date.parse(dates[0])).to_f * multiplier
+    sql = <<-SQL
+      SELECT DISTINCT
+        logs.component_type,
+        COUNT(logs.component_name) AS total_components,
+        (COUNT(logs.component_type) / ?) AS total_components_per
+      FROM logs
+      WHERE logs.status = 'complete'
+      GROUP BY logs.component_type
+    SQL
+
+    results = Log.find_by_sql [sql, date_diff]
+    results.map(&:attributes)
+  end
+
+  #BY LOCATION
+
+  def self.mean_component_completion_time_by_location(format = "day")
+    divisor = Helper.time_divisor(format)
+
+    query_results = Log.component_steps
 
     result = Log.unique_locations.inject({}) do |obj, location|
       component_types = Log.unique_component_types_by_location(location)
@@ -269,7 +311,7 @@ class Log < ApplicationRecord
       end
       # puts "Current time: #{current.change_ts} location: #{current.location}"
       # puts "Previous time #{previous.change_ts} location: #{previous.location}"
-      result[previous.location][previous.component_type] << (current.change_ts - previous.change_ts).to_s
+      result[previous.location][previous.component_type] << (current.change_ts - previous.change_ts) / divisor
       previous = query_results[counter]
       counter += 1
     end
@@ -283,35 +325,51 @@ class Log < ApplicationRecord
     result
   end
 
-  def self.rate_of_output_per_component_type(format = "day")
-    multiplier = 1
-    if format == "sec"
-      multiplier = 86400
-    elsif format == "min"
-      multiplier = 1440
-    elsif format == "hour"
-      multiplier = 24
-    end
+  def self.average_waiting_time_by_location(format = "day")
+    divisor = Helper.time_divisor(format)
 
-    dates = Log.min_and_max_dates
-    date_diff = (Date.parse(dates[0]) - Date.parse(dates[1])).to_f * multiplier
     sql = <<-SQL
       SELECT DISTINCT
-        logs.component_type,
-        COUNT(logs.component_name) AS total_components,
-        (COUNT(logs.component_type) / ?) AS total_components_per
+        *
       FROM logs
-      WHERE logs.status = 'complete'
-      GROUP BY logs.component_type
+      ORDER BY component_name, change_ts
     SQL
 
-    results = Log.find_by_sql [sql, date_diff]
-    results.map(&:attributes)
+    query_results = Log.find_by_sql [sql]
+
+    result = Log.unique_locations.inject({}) do |obj, location|
+      component_types = Log.unique_component_types_by_location(location)
+      obj[location] = component_types.inject({}) do |obj, component_type|
+        obj[component_type] = []
+        obj
+      end
+      obj
+    end
+
+    previous = query_results[0]
+    counter = 1
+
+    while counter < query_results.length
+
+      if previous.component_name != current.component_name || (previous.component_name == current.component_name && previous.status == current.status)
+        previous = query_results[counter]
+        counter += 1
+        next
+      end
+
+      if previous.status == "waiting" && (current.status == "in progress" || current.status == "complete")
+        result[current.location][current.component_type] << (current.change_ts - previous.change_ts) / divisor
+      end
+
+
+    end
+
+
+
   end
 
+  def self.unit_output_per(format = "day")
 
-
-
-
+  end
 
 end
