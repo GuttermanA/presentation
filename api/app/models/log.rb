@@ -227,7 +227,7 @@ class Log < ApplicationRecord
           FROM logs
           WHERE component_type = ?
           AND status IN ("in progress", "complete")
-          ORDER BY component_name, change_ts;
+          ORDER BY component_name, change_ts
           LIMIT 1
         ) first
         ON logs.component_name = first.component_name
@@ -240,7 +240,7 @@ class Log < ApplicationRecord
           *
         FROM logs
         WHERE status IN ("in progress", "complete")
-        ORDER BY component_name, change_ts;
+        ORDER BY component_name, change_ts
       SQL
 
       Log.find_by_sql [sql]
