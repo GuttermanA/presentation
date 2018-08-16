@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import ManufacturingProcessGraph from './components/ManufacturingProcessGraph'
 import LocationStatsTable from './components/LocationStatsTable'
-import LocationStatsBarChart from './components/LocationStatsBarChart'
+import ComponentStatsTable from './components/ComponentStatsTable'
 import logo from './logo.svg';
 import './App.css';
 
@@ -10,11 +10,11 @@ class App extends Component {
     return (
       <div className="App">
         {
-          // <ManufacturingProcessGraph />
+          <ManufacturingProcessGraph />
         }
 
         {
-          // <LocationStatsBarChart />
+          <ComponentStatsTable />
         }
 
         {

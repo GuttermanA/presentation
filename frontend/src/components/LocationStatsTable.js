@@ -1,57 +1,70 @@
 import React, { Component } from 'react';
 import { locations, components } from '../globalVars'
-import { Icon, Label, Menu, Table } from 'semantic-ui-react';
+import { Table } from 'semantic-ui-react';
 
 export default class LocationStatsTable extends Component {
 
   state = {
+    data: []
+  }
 
+  componentDidMount = () => {
+    this.fetchData()
+  }
+
+  fetchData = () => {
+    fetch("http://localhost:3000/location_stats")
+      .then(res => res.json())
+      .then(data => {
+        this.setState({ data })
+      })
   }
 
 
   render() {
+    const { data } = this.state
+    // const header = locations.map((location) => <Table.HeaderCell>{location}</Table.HeaderCell>)
+    const header = data.length && Object.keys(data[0]).reduce((accum, field) => {
+      if (data[0][field] !== null && !Array.isArray(data[0][field])) {
+        accum.push(<Table.HeaderCell>{field}</Table.HeaderCell>)
+      }
+      // console.log(accum)
+      return accum
 
-    const header = locations.map((location) => <Table.HeaderCell>{location}</Table.HeaderCell>)
-    const rows = components.map((component, index)=> {
+    }, [])
+    // console.log(header)
+    const rows = data.length && data.map((row, index)=> {
       return (
         <Table.Row>
-          <Table.Cell>{component.location}</Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell>Cell</Table.Cell>
+          <Table.Cell>{row.location}</Table.Cell>
+          <Table.Cell>{+row.total_active_time.toFixed(2)}</Table.Cell>
+          <Table.Cell>{+row.average_components_completed_per_time.toFixed(2)}</Table.Cell>
+          <Table.Cell>{+row.simultaneous_capacity.toFixed(2)}</Table.Cell>
+          <Table.Cell>{+row.total_wait_time.toFixed(2)}</Table.Cell>
+          <Table.Cell>{+row.average_total_wait_time.toFixed(2)}</Table.Cell>
         </Table.Row>
       )
 
     })
     return (
-      <Table celled definition>
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell />
-            {header}
-          </Table.Row>
-        </Table.Header>
+      <div>
+        <h2>Location Status by Day(151)</h2>
+        <Table celled definition>
+          <Table.Header>
+            <Table.Row>
+              {
+                header
+              }
+            </Table.Row>
+          </Table.Header>
 
-        <Table.Body>
-          <Table.Row>
-            <Table.Cell>
-              <Label ribbon>First</Label>
-            </Table.Cell>
-            <Table.Cell>Cell</Table.Cell>
-            <Table.Cell>Cell</Table.Cell>
-          </Table.Row>
-          <Table.Row>
-            <Table.Cell>Cell</Table.Cell>
-            <Table.Cell>Cell</Table.Cell>
-            <Table.Cell>Cell</Table.Cell>
-          </Table.Row>
-          <Table.Row>
-            <Table.Cell>Cell</Table.Cell>
-            <Table.Cell>Cell</Table.Cell>
-            <Table.Cell>Cell</Table.Cell>
-          </Table.Row>
-        </Table.Body>
+          <Table.Body>
+            {rows}
+          </Table.Body>
 
-      </Table>
+        </Table>
+      </div>
+
     )
   }
 }
