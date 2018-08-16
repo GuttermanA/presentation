@@ -291,7 +291,75 @@ class Log < ApplicationRecord
     results.map(&:attributes)
   end
 
+  def self.waiting_time_stats_by_component(format = "day")
+    divisor = Helper.time_divisor(format)
+
+    sql = <<-SQL
+      SELECT DISTINCT
+      component_name,
+      component_type,
+      location,
+      status,
+      change_ts
+      FROM logs
+      ORDER BY component_name, change_ts
+    SQL
+
+    query_results = Log.find_by_sql [sql]
+
+    result = Log.unique_component_types.inject([]) do |arr, component|
+      arr.push({"component_type" => component, "total_wait_time" => 0, "average_total_wait_time" => 0, "all_wait_times" =>[]})
+      arr
+    end
+
+    previous = query_results[0]
+    counter = 1
+
+    while counter < query_results.length
+      current = query_results[counter]
+
+      current_component = result.find{|x| x["component_type"] == current.component_type}
+      if previous.component_name != current.component_name && (previous.status == "waiting" && current.status == "in progress")
+        previous = query_results[counter]
+        counter += 1
+        next
+      end
+
+      if previous.status == "waiting" && current.status == "in progress"
+        change = (current.change_ts - previous.change_ts) / divisor
+        current_component["total_wait_time"] += change
+        current_component["all_wait_times"] << {"component_type" => current.component_type, "wait_time" => change}
+        current_component["average_total_wait_time"] = current_component["total_wait_time"] / current_component["all_wait_times"].size
+      end
+
+      previous = query_results[counter]
+      counter += 1
+
+    end
+
+    result
+
+  end
+
   #BY LOCATION
+
+  def self.rate_of_output_by_location(format = "day")
+    multiplier = Helper.time_multiplier(format)
+    dates = Log.min_and_max_dates
+    date_diff = (Date.parse(dates[1]) - Date.parse(dates[0])).to_f * multiplier
+    sql = <<-SQL
+      SELECT DISTINCT
+        logs.location,
+        COUNT(*) AS total_components,
+        (COUNT(*) / ?) AS "total_components_per_time"
+      FROM logs
+      WHERE logs.status = 'in progress'
+      GROUP BY logs.location
+    SQL
+
+    results = Log.find_by_sql [sql, date_diff]
+    results.map(&:attributes)
+  end
 
   def self.mean_component_completion_time_by_location(format = "day")
     divisor = Helper.time_divisor(format)
@@ -299,7 +367,7 @@ class Log < ApplicationRecord
     query_results = Log.query_component_steps
 
     result = Log.unique_locations.inject([]) do |arr, location|
-      arr.push({location: location, total_active_time: 0, average_components_completed_per_time: 0, all_completed_components: []})
+      arr.push({"location" => location, "total_active_time" => 0, "average_time_to_complete_component" => 0, "all_completed_components" => []})
       # component_types = Log.unique_component_types_by_location(location)
       # obj[location] = component_types.inject({}) do |obj, component_type|
       #   obj[component_type] = []
@@ -314,7 +382,7 @@ class Log < ApplicationRecord
 
     while counter < query_results.length
       current = query_results[counter]
-      previous_location = result.find{|x| x[:location] == previous.location}
+      previous_location = result.find{|x| x["location"] == previous.location}
       if previous.component_name != current.component_name
         previous = query_results[counter]
         counter += 1
@@ -323,9 +391,9 @@ class Log < ApplicationRecord
       # puts "Current time: #{current.change_ts} location: #{current.location}"
       # puts "Previous time #{previous.change_ts} location: #{previous.location}"
       time = (current.change_ts - previous.change_ts) / divisor
-      previous_location[:total_active_time] += time
-      previous_location[:all_completed_components] << {component_name:previous.component_name, component_type: previous.component_type, time: time}
-      previous_location[:average_components_completed_per_time] = previous_location[:total_active_time] / previous_location[:all_completed_components].size
+      previous_location["total_active_time"] += time
+      previous_location["all_completed_components"] << {"component_name" => previous.component_name, "component_type" => previous.component_type, "time" => time}
+      previous_location["average_time_to_complete_component"] = previous_location["total_active_time"] / previous_location["all_completed_components"].size
       previous = query_results[counter]
       counter += 1
     end
@@ -412,7 +480,7 @@ class Log < ApplicationRecord
     unique_locations = Log.unique_locations
 
     result = unique_locations.inject([]) do |arr, location|
-      arr << {location: location, simultaneous_capacity: 0}
+      arr << {"location" => location, "simultaneous_capacity" => 0}
       arr
     end
 
@@ -423,12 +491,12 @@ class Log < ApplicationRecord
       initiates_manufacture = current.change_ts == Time.parse("2018-01-01 00:00:00 UTC")
       # while current && current.status == "in progress" && counter < steps.length
       while counter < steps.length && current.status == "in progress"
-        current_location = current_location = result.find{|x| x[:location] == current.location}
+        current_location = current_location = result.find{|x| x["location"] == current.location}
         if initiates_manufacture && steps[counter + 1].change_ts != Time.parse("2018-01-01 00:00:00 UTC")
-          current_location[:simultaneous_capacity] += 1
+          current_location["simultaneous_capacity"] += 1
           break
         end
-        current_location[:simultaneous_capacity] += 1
+        current_location["simultaneous_capacity"] += 1
         counter += 1
         current = steps[counter]
       end
@@ -568,7 +636,7 @@ class Log < ApplicationRecord
     query_results = Log.find_by_sql [sql]
 
     result = Log.unique_locations.inject([]) do |arr, location|
-      arr.push({location: location, total_wait_time:0, average_total_wait_time:0, all_wait_times:[]})
+      arr.push({"location" => location, "total_wait_time" => 0, "average_total_wait_time" => 0, "all_wait_times" => []})
       arr
     end
 
@@ -578,7 +646,7 @@ class Log < ApplicationRecord
     while counter < query_results.length
       current = query_results[counter]
 
-      current_location = result.find{|x| x[:location] == current.location}
+      current_location = result.find{|x| x["location"] == current.location}
       if previous.component_name != current.component_name && (previous.status == "waiting" && current.status == "in progress")
         previous = query_results[counter]
         counter += 1
@@ -588,9 +656,9 @@ class Log < ApplicationRecord
       if previous.status == "waiting" && current.status == "in progress"
         change = (current.change_ts - previous.change_ts) / divisor
         # byebug
-        current_location[:total_wait_time] += change
-        current_location[:all_wait_times] << {component_type: current.component_type, wait_time: change}
-        current_location[:average_total_wait_time] = current_location[:total_wait_time] / current_location[:all_wait_times].size
+        current_location["total_wait_time"] += change
+        current_location["all_wait_times"] << {"component_type" => current.component_type, "wait_time" => change}
+        current_location["average_total_wait_time"] = current_location["total_wait_time"] / current_location["all_wait_times"].size
       end
 
       previous = query_results[counter]
@@ -601,55 +669,7 @@ class Log < ApplicationRecord
     result
   end
 
-  def self.waiting_time_stats_by_component(format = "day")
-    divisor = Helper.time_divisor(format)
 
-    sql = <<-SQL
-      SELECT DISTINCT
-      component_name,
-      component_type,
-      location,
-      status,
-      change_ts
-      FROM logs
-      ORDER BY component_name, change_ts
-    SQL
-
-    query_results = Log.find_by_sql [sql]
-
-    result = Log.unique_component_types.inject([]) do |arr, component|
-      arr.push({component_type: component, total_wait_time:0, average_total_wait_time:0, all_wait_times:[]})
-      arr
-    end
-
-    previous = query_results[0]
-    counter = 1
-
-    while counter < query_results.length
-      current = query_results[counter]
-
-      current_component = result.find{|x| x[:component_type] == current.component_type}
-      if previous.component_name != current.component_name && (previous.status == "waiting" && current.status == "in progress")
-        previous = query_results[counter]
-        counter += 1
-        next
-      end
-
-      if previous.status == "waiting" && current.status == "in progress"
-        change = (current.change_ts - previous.change_ts) / divisor
-        current_component[:total_wait_time] += change
-        current_component[:all_wait_times] << {component_type: current.component_type, wait_time: change}
-        current_component[:average_total_wait_time] = current_component[:total_wait_time] / current_component[:all_wait_times].size
-      end
-
-      previous = query_results[counter]
-      counter += 1
-
-    end
-
-    result
-
-  end
 
   def self.unit_output_per(format = "day")
     # Since each unit requires all 4 components, then the amount of units produced is bound by the slowest produced component

@@ -34,9 +34,9 @@ export default class ComponentStatsTable extends Component {
       return (
         <Table.Row>
           <Table.Cell>{row.component_type}</Table.Cell>
-          <Table.Cell>{+row.total_components.toFixed(2)}</Table.Cell>
-          <Table.Cell>{+row.total_components_per_time.toFixed(2)}</Table.Cell>
           <Table.Cell>{+row.average_completion_time.toFixed(2)}</Table.Cell>
+          <Table.Cell>{+row.total_components}</Table.Cell>
+          <Table.Cell>{+row.total_components_per_time.toFixed(2)}</Table.Cell>
           <Table.Cell>{+row.total_wait_time.toFixed(2)}</Table.Cell>
           <Table.Cell>{+row.average_total_wait_time.toFixed(2)}</Table.Cell>
         </Table.Row>

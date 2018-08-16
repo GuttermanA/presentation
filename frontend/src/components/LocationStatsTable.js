@@ -38,7 +38,7 @@ export default class LocationStatsTable extends Component {
         <Table.Row>
           <Table.Cell>{row.location}</Table.Cell>
           <Table.Cell>{+row.total_active_time.toFixed(2)}</Table.Cell>
-          <Table.Cell>{+row.average_components_completed_per_time.toFixed(2)}</Table.Cell>
+          <Table.Cell>{+row.average_time_to_complete_component.toFixed(2)}</Table.Cell>
           <Table.Cell>{+row.simultaneous_capacity.toFixed(2)}</Table.Cell>
           <Table.Cell>{+row.total_wait_time.toFixed(2)}</Table.Cell>
           <Table.Cell>{+row.average_total_wait_time.toFixed(2)}</Table.Cell>
