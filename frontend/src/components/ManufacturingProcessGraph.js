@@ -104,14 +104,12 @@ export default class ManufacturingProcessGraph extends Component {
   }
 
   componentDidMount = () => {
-    // console.log('fetching')
     this.fetchData()
   }
 
   fetchData = () => {
     fetch("http://localhost:3000/manufacturing_process")
       .then(res => res.json())
-      // .then(json => console.log(json))
       .then(res => {
         const lines = []
         const yAxis = new Set()

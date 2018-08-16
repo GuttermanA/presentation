@@ -22,7 +22,6 @@ export default class ComponentStatsTable extends Component {
 
   render() {
     const { data } = this.state
-    // const header = locations.map((location) => <Table.HeaderCell>{location}</Table.HeaderCell>)
     const header = data.length && Object.keys(data[0]).reduce((accum, field) => {
       if (data[0][field] && !Array.isArray(data[0][field])  ) {
         accum.push(<Table.HeaderCell>{field}</Table.HeaderCell>)

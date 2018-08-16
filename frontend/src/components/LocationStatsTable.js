@@ -23,16 +23,14 @@ export default class LocationStatsTable extends Component {
 
   render() {
     const { data } = this.state
-    // const header = locations.map((location) => <Table.HeaderCell>{location}</Table.HeaderCell>)
     const header = data.length && Object.keys(data[0]).reduce((accum, field) => {
       if (data[0][field] !== null && !Array.isArray(data[0][field])) {
         accum.push(<Table.HeaderCell>{field}</Table.HeaderCell>)
       }
-      // console.log(accum)
+
       return accum
 
     }, [])
-    // console.log(header)
     const rows = data.length && data.map((row, index)=> {
       const capacity = parseInt(row.simultaneous_capacity) > 1000 ? 'capacity not reached' : +row.simultaneous_capacity.toFixed(2)
       return (

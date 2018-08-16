@@ -175,48 +175,6 @@ class Log < ApplicationRecord
   end
 
   def self.query_component_steps(component_type = nil)
-    # connection = ActiveRecord::Base.connection
-    #
-    # connection.execute("DROP TABLE IF EXISTS temp")
-
-    # temp_sql = <<-SQL
-    # CREATE TEMPORARY TABLE temp (
-    #   id INTEGER PRIMARY KEY ASC,
-    #   component_name TEXT,
-    #   component_type TEXT,
-    #   location TEXT,
-    #   status TEXT,
-    #   change_ts DATETIME
-    # );
-    #
-    # INSERT INTO temp (component_name, component_type, location, status, change_ts)
-    #   SELECT
-    #   logs.component_name,
-    #   logs.component_type,
-    #   logs.location,
-    #   logs.status,
-    #   logs.change_ts
-    #   FROM logs
-    #   WHERE status IN ("in progress", "complete")
-    #   ORDER BY logs.component_name, logs.change_ts;
-    #
-    # SQL
-
-
-    # temp_sql = <<-SQL
-    #   SELECT DISTINCT
-    #     component_name,
-    #     component_type,
-    #     location,
-    #     status,
-    #     change_ts
-    #   FROM logs
-    #   WHERE status IN ("in progress", "complete")
-    #   ORDER BY logs.component_name, logs.change_ts;
-    # SQL
-    #
-    # connection.create_table(:temp, temporary: true, as: temp_sql)
-
     if component_type
       sql = <<-SQL
         SELECT DISTINCT
@@ -370,11 +328,6 @@ class Log < ApplicationRecord
 
     result = Log.unique_locations.inject([]) do |arr, location|
       arr.push({"location" => location, "total_active_time" => 0, "average_time_to_complete_component" => 0, "all_completed_components" => []})
-      # component_types = Log.unique_component_types_by_location(location)
-      # obj[location] = component_types.inject({}) do |obj, component_type|
-      #   obj[component_type] = []
-      #   obj
-      # end
       arr
     end
 
@@ -390,8 +343,6 @@ class Log < ApplicationRecord
         counter += 1
         next
       end
-      # puts "Current time: #{current.change_ts} location: #{current.location}"
-      # puts "Previous time #{previous.change_ts} location: #{previous.location}"
       time = (current.change_ts - previous.change_ts) / divisor
       previous_location["total_active_time"] += time
       previous_location["all_completed_components"] << {"component_name" => previous.component_name, "component_type" => previous.component_type, "time" => time}
@@ -399,45 +350,6 @@ class Log < ApplicationRecord
       previous = query_results[counter]
       counter += 1
     end
-    #
-    # result.each do |location, component|
-    #   component.each do |type, times|
-    #     result[location][type] = times.inject{ |sum, el| sum + el }.to_f / times.size
-    #   end
-    # end
-
-    # result = Log.unique_locations.inject({}) do |obj, location|
-    #   component_types = Log.unique_component_types_by_location(location)
-    #   obj[location] = component_types.inject({}) do |obj, component_type|
-    #     obj[component_type] = []
-    #     obj
-    #   end
-    #   obj
-    # end
-    #
-    # previous = query_results[0]
-    # counter = 1
-    #
-    #
-    # while counter < query_results.length
-    #   current = query_results[counter]
-    #   if previous.component_name != current.component_name
-    #     previous = query_results[counter]
-    #     counter += 1
-    #     next
-    #   end
-    #   # puts "Current time: #{current.change_ts} location: #{current.location}"
-    #   # puts "Previous time #{previous.change_ts} location: #{previous.location}"
-    #   result[previous.location][previous.component_type] << (current.change_ts - previous.change_ts) / divisor
-    #   previous = query_results[counter]
-    #   counter += 1
-    # end
-    #
-    # result.each do |location, component|
-    #   component.each do |type, times|
-    #     result[location][type] = times.inject{ |sum, el| sum + el }.to_f / times.size
-    #   end
-    # end
 
     result
   end
@@ -474,11 +386,10 @@ class Log < ApplicationRecord
     end
 
     results
-    # results.map(&:attributes)
   end
 
   def self.location_simultaneous_capacity
-    # unique_locations = [Log.unique_locations[0]]
+
     unique_locations = Log.unique_locations
 
     result = unique_locations.inject([]) do |arr, location|
@@ -491,7 +402,6 @@ class Log < ApplicationRecord
       counter = 0
       current = steps[0]
       initiates_manufacture = current.change_ts == Time.parse("2018-01-01 00:00:00 UTC")
-      # while current && current.status == "in progress" && counter < steps.length
       while counter < steps.length && current.status == "in progress"
         current_location = current_location = result.find{|x| x["location"] == current.location}
         if initiates_manufacture && steps[counter + 1].change_ts != Time.parse("2018-01-01 00:00:00 UTC")
@@ -503,28 +413,6 @@ class Log < ApplicationRecord
         current = steps[counter]
       end
     end
-
-    # result = unique_locations.inject({}) do |obj, location|
-    #   obj[location] = 0
-    #   obj
-    # end
-    #
-    # unique_locations.each do |location|
-    #   steps = Log.query_location_steps(location)
-    #   counter = 0
-    #   current = steps[0]
-    #   initiates_manufacture = current.change_ts == Time.parse("2018-01-01 00:00:00 UTC")
-    #   # while current && current.status == "in progress" && counter < steps.length
-    #   while counter < steps.length && current.status == "in progress"
-    #     if initiates_manufacture && steps[counter + 1].change_ts != Time.parse("2018-01-01 00:00:00 UTC")
-    #       result[location] += 1
-    #       break
-    #     end
-    #     result[location] += 1
-    #     counter += 1
-    #     current = steps[counter]
-    #   end
-    # end
 
     result
 
@@ -545,80 +433,6 @@ class Log < ApplicationRecord
 
     query_results = Log.find_by_sql [sql, date_diff]
     query_results.map(&:attributes)
-    # results = query_results.inject({}) do |obj, row|
-    #   obj[row.location] = row["capicity_per_#{format}"]
-    #   obj
-    # end
-    #
-    # results
-  end
-
-  def self.waiting_time_stats_by_location_old(format = "day")
-    divisor = Helper.time_divisor(format)
-
-    sql = <<-SQL
-      SELECT DISTINCT
-        component_name,
-        component_type,
-        location,
-        status,
-        change_ts
-      FROM logs
-      ORDER BY component_name, change_ts
-    SQL
-
-    query_results = Log.find_by_sql [sql]
-    # result = Log.unique_locations.inject({}) do |obj, location|
-    #   component_types = Log.unique_component_types_by_location(location)
-    #   obj[location] = component_types.inject({}) do |obj, component_type|
-    #     obj[component_type] = []
-    #     obj
-    #   end
-    #   obj
-    # end
-    #
-    # previous = query_results[0]
-    # counter = 1
-    #
-    # while counter < query_results.length
-    #   current = query_results[counter]
-    #   if previous.component_name != current.component_name && (previous.status == "waiting" && current.status == "in progress")
-    #     previous = query_results[counter]
-    #     counter += 1
-    #     next
-    #   end
-    #
-    #   if previous.status == "waiting" && current.status == "in progress"
-    #     result[current.location][current.component_type] << (current.change_ts - previous.change_ts) / divisor
-    #   end
-    #
-    #   previous = query_results[counter]
-    #   counter += 1
-    #
-    # end
-    #
-    # result.each do |location, component|
-    #   result[location]["total_wait_time"] = 0
-    #   size = 0
-    #   component.each do |type, times|
-    #     if times.instance_of?(Array) && times.length != 0
-    #       size += times.length
-    #       total = times.inject{ |sum, el| sum + el }.to_f
-    #       result[location]["total_wait_time"] += total
-    #       result[location][type] = total / times.length
-    #     elsif type.include? "component"
-    #       result[location][type] = 0
-    #     end
-    #   end
-    #
-    #   if size > 0
-    #     result[location]["average_total_wait_time"] = result[location]["total_wait_time"] / size
-    #   else
-    #     result[location]["average_total_wait_time"] = 0
-    #   end
-    # end
-
-    result
   end
 
   def self.waiting_time_stats_by_location(format = "day")
@@ -658,7 +472,6 @@ class Log < ApplicationRecord
 
       if previous.status == "waiting" && current.status == "in progress"
         change = (current.change_ts - previous.change_ts) / divisor
-        # byebug
         current_location["total_wait_time"] += change
         current_location["all_wait_times"] << {"component_type" => current.component_type, "wait_time" => change}
         current_location["average_total_wait_time"] = current_location["total_wait_time"] / current_location["all_wait_times"].size

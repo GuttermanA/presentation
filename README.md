@@ -1,5 +1,7 @@
 ## Instructions
 
+This is the code I used to complete the CKM Data Science Exercise. In these folders are two small apps: a Rails API containing the database with SQL queries and the frontend which is a small React app with Chart.js and Semantic UI to display the data.
+
 To run this code:
 1. Download
 2. Navigate to directory with your terminal
@@ -24,5 +26,7 @@ To generate the chart and tables:
 3. Run ```yarn start```
 
 The graphics will take a moment to load due to the numerous queries against the database.
+
+The graph is built with Chart.js and the tables with Semantic UI
 
 Please don't hesitate to reach out if anything is unclear: alexanderf.gutterman@gmail.com
