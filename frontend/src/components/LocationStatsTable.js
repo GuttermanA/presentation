@@ -34,12 +34,13 @@ export default class LocationStatsTable extends Component {
     }, [])
     // console.log(header)
     const rows = data.length && data.map((row, index)=> {
+      const capacity = parseInt(row.simultaneous_capacity) > 1000 ? 'capacity not reached' : +row.simultaneous_capacity.toFixed(2)
       return (
         <Table.Row>
           <Table.Cell>{row.location}</Table.Cell>
           <Table.Cell>{+row.total_active_time.toFixed(2)}</Table.Cell>
           <Table.Cell>{+row.average_time_to_complete_component.toFixed(2)}</Table.Cell>
-          <Table.Cell>{+row.simultaneous_capacity.toFixed(2)}</Table.Cell>
+          <Table.Cell>{capacity}</Table.Cell>
           <Table.Cell>{+row.total_wait_time.toFixed(2)}</Table.Cell>
           <Table.Cell>{+row.average_total_wait_time.toFixed(2)}</Table.Cell>
           <Table.Cell>{(row.total_components && +row.total_components.toFixed(2)) || 0}</Table.Cell>

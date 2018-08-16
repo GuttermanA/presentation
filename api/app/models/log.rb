@@ -236,6 +236,8 @@ class Log < ApplicationRecord
           LIMIT 1
         ) first
         ON logs.component_name = first.component_name
+        WHERE status IN ("in progress", "complete")
+        ORDER BY logs.component_name, change_ts
       SQL
 
       Log.find_by_sql [sql, component_type]
@@ -630,7 +632,8 @@ class Log < ApplicationRecord
       status,
       change_ts
       FROM logs
-      ORDER BY component_name, change_ts
+
+      ORDER BY location, component_name, change_ts
     SQL
 
     query_results = Log.find_by_sql [sql]

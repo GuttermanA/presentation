@@ -44,7 +44,7 @@ export default class ManufacturingProcessGraph extends Component {
 
   state = {
     data: {
-      xLabels: [1, 2, 3, 4, 5, 6, 7],
+      xLabels: [1, 2, 3, 4, 5],
       yLabels: locations,
       datasets: [],
     },
@@ -68,7 +68,7 @@ export default class ManufacturingProcessGraph extends Component {
                 },
                 ticks: {
                   min: 1,
-                  max: 7,
+                  max: 5,
                   stepSize: 1,
                   // callback: function(value) {
                   //   return xMap[value];
